@@ -8,12 +8,16 @@
   </head>
   <body>
     <h1>Google Sheets Form Demo</h1>
-    <form id="demoForm">
-      <label> Name: <input id="name" name="name" required /> </label><br />
+    <form id="demoForm" novalidate>
       <label>
-        Email: <input id="email" name="email" type="email" required /></label
+        Name: <input id="name" name="name" required />
+        <span class="error" id="nameError" aria-live="polite"></span> </label
       ><br />
-      <button type="submit">Submit</button>
+      <label>
+        Email: <input id="email" name="email" type="email" required />
+        <span class="error" id="emailError" aria-live="polite"></span></label
+      ><br />
+      <button id="submitBtn" type="submit">Submit</button>
     </form>
     <p id="status"></p>
     <script src="script.js"></script>
