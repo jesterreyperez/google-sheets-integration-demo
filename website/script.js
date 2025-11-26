@@ -1,16 +1,70 @@
+// script.js (with validation + UX)
 const WEB_APP_URL =
   "https://script.google.com/macros/s/AKfycbzrW2AzCvDwaWJFAy0X4XabdtZ_C2R7UlcizROgs-CRhRTDHrS4WmFKtHzKCRm-PES6vw/exec";
 const form = document.getElementById("demoForm");
 const status = document.getElementById("status");
+const submitBtn = document.getElementById("submitBtn");
+
+const nameInput = document.getElementById("name");
+const emailInput = document.getElementById("email");
+const nameError = document.getElementById("nameError");
+const emailError = document.getElementById("emailError");
+
+// Simple email regex — good enough for most demos (not RFC perfect)
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validate() {
+  let vaild = true;
+
+  // Clear previous errors
+  nameError.textContent = "";
+  emailError.textContent = "";
+
+  const name = nameInput.value.trim();
+  const email = emailInput.value.trim();
+
+  if (!name) {
+    nameError.textContent = "Please enter your name.";
+    valid = false;
+  }
+
+  if (!email) {
+    emailError.textContent = "Please enter your email.";
+    valid = false;
+  } else if (!emailRegex.test(email)) {
+    emailError.textContent = "Please enter a valid email address.";
+    valid = false;
+  }
+
+  return valid;
+}
+
+function setLoading(isLoading) {
+  submitBtn.disabled = isLoading;
+  submitBtn.textContent = isLoading ? "Sending..." : "Submit";
+}
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  status.textContent = "Sending...";
 
+  // Clear global status
+  status.textContent = "";
+
+  // Validate — if fails, bail out
+  const isValid = validate();
+  if (!isValid) {
+    status.textContent = "Please fix the errors above.";
+    return;
+  }
+
+  // Build payload
   const payload = {
-    name: document.getElementById("name").value.trim(),
-    email: document.getElementById("email").value.trim(),
+    name: nameInput.value.trim(),
+    email: emailInput.value.trim(),
   };
+
+  // UX: disable button while sending
+  setLoading(true);
 
   try {
     const res = await fetch(WEB_APP_URL, {
@@ -18,21 +72,23 @@ form.addEventListener("submit", async (e) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
     if (res.ok) {
-      // Try to parse JSON response if available (may be blocked by CORS)
       try {
         const json = await res.json();
-        statusbar.textContent = `Success: ${json.status}`;
-      } catch (e) {
-        // opaque/empty response (CORS) — still likely delivered
+        status.textContent = `Success: ${json.status}`;
+        // Optionally clear form
+        form.reset();
+      } catch (err) {
         status.textContent =
-          "Submitted (response not readable due to CORS). Check sheet.";
+          "Submitted. Check Google Sheet (response unreadable due to CORS).";
+        form.reset();
       }
     } else {
-      statusbar.textContent = `Server error: ${res.status}`;
+      status.textContent = `Server error: ${res.status}`;
     }
   } catch (err) {
-    // If fetch fails because of CORS or network, try the no-cors fallback
+    // fallback to no-cors attempt (may still deliver)
     try {
       await fetch(WEB_APP_URL, {
         method: "POST",
@@ -41,8 +97,11 @@ form.addEventListener("submit", async (e) => {
         body: JSON.stringify(payload),
       });
       status.textContent = "Submitted (no-cors fallback). Check Google Sheet.";
+      form.reset();
     } catch (e2) {
-      statusbar.textContent = "Network error: " + e2.message;
+      status.textContent = "Network error: " + e2.message;
     }
+  } finally {
+    setLoading(false);
   }
 });
