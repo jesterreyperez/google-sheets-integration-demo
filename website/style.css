@@ -17,3 +17,14 @@ button {
   margin-top: 12px;
   font-weight: 600;
 }
+
+.error {
+  color: #b00020;
+  display: block;
+  font-size: 0.9rem;
+  margin-top: 2px;
+}
+
+input:invalid {
+  outline: 2px solid rgba(176, 0, 32, 0.12);
+}
