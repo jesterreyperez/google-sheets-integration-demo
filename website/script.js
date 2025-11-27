@@ -14,7 +14,7 @@ const emailError = document.getElementById("emailError");
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validate() {
-  let vaild = true;
+  let valid = true;
 
   // Clear previous errors
   nameError.textContent = "";
