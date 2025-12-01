@@ -1,30 +1,60 @@
 // apps-script-code.gs
-// Receives POSTed JSON and appends to the active spreadsheet (Sheet1)
+// doPost with server-side validation for name + email
+
+// Simple email regex (practical, not RFC-perfect)
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function buildJsonOutput(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
+    ContentService.MimeType.JSON
+  );
+}
 
 function doPost(e) {
   try {
-    // e.postData.contents contains the raw POST body as a string
+    // Read body safely
     var body = e.postData && e.postData.contents ? e.postData.contents : "{}";
     var data = JSON.parse(body);
 
-    // Get the active spreadsheet and sheet
+    var name = (data.name || "").toString().trim();
+    var email = (data.email || "").toString().trim();
+
+    // Server-side validation
+    if (!name) {
+      return buildJsonOutput({
+        status: "error",
+        code: "missing_name",
+        message: "Name is required.",
+      });
+    }
+    if (!email) {
+      return buildJsonOutput({
+        status: "error",
+        code: "missing_email",
+        message: "Email is required.",
+      });
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      return buildJsonOutput({
+        status: "error",
+        code: "invalid_email",
+        message: "Email format is invalid.",
+      });
+    }
+
+    // At this point valid — append to sheet
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName("Sheet1");
 
-    // Append a new row: Timestamp, Name, Email
-    sheet.appendRow([new Date(), data.name || "", data.email || ""]);
+    sheet.appendRow([new Date(), name, email]);
 
-    // Return a JSON success response
-    var output = ContentService.createTextOutput(
-      JSON.stringify({ status: "success" })
-    ).setMimeType(ContentService.MimeType.JSON);
-
-    return output;
+    return buildJsonOutput({ status: "success", message: "Saved" });
   } catch (err) {
-    // Return a JSON error response
-    var output = ContentService.createTextOutput(
-      JSON.stringify({ status: "error", message: err.message })
-    ).setMimeType(ContentService.MimeType.JSON);
-    return output;
+    // Unexpected server error
+    return buildJsonOutput({
+      status: "error",
+      code: "server_error",
+      message: err.message,
+    });
   }
 }
