@@ -74,18 +74,39 @@ form.addEventListener("submit", async (e) => {
     });
 
     if (res.ok) {
+      // Try to parse server JSON. If CORS blocks this, the catch below handles it.
       try {
         const json = await res.json();
-        status.textContent = `Success: ${json.status}`;
-        // Optionally clear form
-        form.reset();
+        if (json.status === "success") {
+          status.textContent = json.message || "Saved!";
+          form.reset();
+        } else if (json.status === "error") {
+          // Use server error codes/messages to show inline feedback
+          status.textContent = json.message || "Server validation error";
+
+          // Example: show field-specific errors
+          if (json.code === "missing_name") {
+            nameError.textContent = json.message;
+          } else if (
+            json.code === "missing_email" ||
+            json.code === "invalid_email"
+          ) {
+            emailError.textContent = json.message;
+          } else {
+            // generic server error, show in global status
+            status.textContent = json.message || "Server error";
+          }
+        } else {
+          status.textContent = "Unexpected server response.";
+        }
       } catch (err) {
+        // Likely CORS made response unreadable — fallback behavior
         status.textContent =
-          "Submitted. Check Google Sheet (response unreadable due to CORS).";
+          "Submitted (response unreadable due to CORS). Check Google Sheet.";
         form.reset();
       }
     } else {
-      status.textContent = `Server error: ${res.status}`;
+      status.textContent = `Server returned HTTP ${res.status}`;
     }
   } catch (err) {
     // fallback to no-cors attempt (may still deliver)
