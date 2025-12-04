@@ -1,6 +1,7 @@
-// script.js (with validation + UX)
+// script.js (validation + UX + animations)
 const WEB_APP_URL =
   "https://script.google.com/macros/s/AKfycbzrW2AzCvDwaWJFAy0X4XabdtZ_C2R7UlcizROgs-CRhRTDHrS4WmFKtHzKCRm-PES6vw/exec";
+
 const form = document.getElementById("demoForm");
 const status = document.getElementById("status");
 const submitBtn = document.getElementById("submitBtn");
@@ -10,13 +11,52 @@ const emailInput = document.getElementById("email");
 const nameError = document.getElementById("nameError");
 const emailError = document.getElementById("emailError");
 
-// Simple email regex — good enough for most demos (not RFC perfect)
+// Animation helpers (place after element queries)
+const spinner = document.getElementById("spinner");
+const check = document.getElementById("check");
+const animWrap = document.getElementById("animWrap");
+
+function showSpinner() {
+  if (spinner) spinner.classList.remove("hidden");
+  if (check) check.classList.add("hidden");
+  if (animWrap) animWrap.style.display = "inline-block";
+}
+
+function hideSpinner() {
+  if (spinner) spinner.classList.add("hidden");
+}
+
+/**
+ * Show animated check for success.
+ * Plays animations and hides after `duration` ms.
+ */
+function showSuccess(duration = 900) {
+  if (spinner) spinner.classList.add("hidden");
+  if (!check) return;
+
+  check.classList.remove("hidden");
+  check.offsetWidth; // force reflow to retrigger animation
+
+  setTimeout(() => {
+    check.classList.add("hidden");
+    if (animWrap) animWrap.style.display = "none";
+  }, duration);
+}
+
+/**
+ * Trigger error shake on form
+ */
+function showErrorShake() {
+  form.classList.add("form-shake");
+  setTimeout(() => form.classList.remove("form-shake"), 400);
+}
+
+// Basic email regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function validate() {
   let valid = true;
 
-  // Clear previous errors
   nameError.textContent = "";
   emailError.textContent = "";
 
@@ -44,27 +84,29 @@ function setLoading(isLoading) {
   submitBtn.textContent = isLoading ? "Sending..." : "Submit";
 }
 
+// =========================
+//    SUBMIT HANDLER
+// =========================
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  // Clear global status
   status.textContent = "";
 
-  // Validate — if fails, bail out
   const isValid = validate();
   if (!isValid) {
     status.textContent = "Please fix the errors above.";
+    showErrorShake();
     return;
   }
 
-  // Build payload
   const payload = {
     name: nameInput.value.trim(),
     email: emailInput.value.trim(),
   };
 
-  // UX: disable button while sending
   setLoading(true);
+  showSpinner(); // show spinner before network request
 
   try {
     const res = await fetch(WEB_APP_URL, {
@@ -74,17 +116,16 @@ form.addEventListener("submit", async (e) => {
     });
 
     if (res.ok) {
-      // Try to parse server JSON. If CORS blocks this, the catch below handles it.
       try {
         const json = await res.json();
+
         if (json.status === "success") {
           status.textContent = json.message || "Saved!";
+          showSuccess(900);
           form.reset();
         } else if (json.status === "error") {
-          // Use server error codes/messages to show inline feedback
           status.textContent = json.message || "Server validation error";
 
-          // Example: show field-specific errors
           if (json.code === "missing_name") {
             nameError.textContent = json.message;
           } else if (
@@ -92,24 +133,23 @@ form.addEventListener("submit", async (e) => {
             json.code === "invalid_email"
           ) {
             emailError.textContent = json.message;
-          } else {
-            // generic server error, show in global status
-            status.textContent = json.message || "Server error";
           }
-        } else {
-          status.textContent = "Unexpected server response.";
+
+          showErrorShake();
         }
       } catch (err) {
-        // Likely CORS made response unreadable — fallback behavior
+        // CORS fallback success
         status.textContent =
           "Submitted (response unreadable due to CORS). Check Google Sheet.";
+        showSuccess(900);
         form.reset();
       }
     } else {
       status.textContent = `Server returned HTTP ${res.status}`;
+      showErrorShake();
     }
   } catch (err) {
-    // fallback to no-cors attempt (may still deliver)
+    // try no-cors fallback
     try {
       await fetch(WEB_APP_URL, {
         method: "POST",
@@ -117,12 +157,16 @@ form.addEventListener("submit", async (e) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       status.textContent = "Submitted (no-cors fallback). Check Google Sheet.";
+      showSuccess(900);
       form.reset();
     } catch (e2) {
       status.textContent = "Network error: " + e2.message;
+      showErrorShake();
     }
   } finally {
+    hideSpinner();
     setLoading(false);
   }
 });
